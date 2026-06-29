@@ -9,7 +9,7 @@ int right_back = 12;  // 오른쪽 후진
 int steer_right = 7;  // 조향 우회전
 int steer_left = 8;   // 조향 좌회전
 
-int pot_pin = A0;     // 가변 저항 핀
+int pot_pin = A0;     // 가변 저항 핀 -> 6.29기준 연결X
 
 // --- 2. 속도 제어 변수 (★튜닝 구역: 0 ~ 255 사이로 조절★) ---
 int DRIVE_SPEED = 50; // 🚗 뒷바퀴 주행 속도 (초기 테스트용으로 느리게 설정)
@@ -17,7 +17,7 @@ int STEER_SPEED = 130; // ⚙️ 앞바퀴 조향 속도 (부드럽게 조향되
 
 int target_angle = 90;  
 int current_angle = 90; 
-int error_margin = 1; 
+int error_margin = 1; //-> 중앙 기준 좌우 몇도는 중앙으로 인정
 
 void setup() {
   Serial.begin(9600);
