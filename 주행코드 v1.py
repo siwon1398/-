@@ -1,46 +1,5 @@
-import Function_Library as fl
-
 EPOCH = 500000
-#
-# if __name__ == "__main__":
-#     # Exercise Environment Setting
-#     env = fl.libCAMERA()#libCAMERA 클래스를 env에 불러옴
-#
-#     """ Exercise 1: RGB Color Value Extracting """
-#     ############## YOU MUST EDIT ONLY HERE ##############
-#     #example = env.file_read("./Example Image.jpg")
-#     #R, G, B = env.extract_rgb(example, print_enable=True)
-#     #quit()
-#     #####################################################
-#
-#     # Camera Initial Setting
-#     ch0, ch1 = env.initial_setting(capnum=2)#capnum = pc에 연결한 카메라 개수(항상2) ch0, 1은 카메라의 객체 정보 출력
-#
-#     # Camera Reading..
-#     for i in range(EPOCH):
-#         _, frame0, _, frame1 = env.camera_read(ch0, ch1)#카메라를 디지털 값으로 불러옴
-#
-#         """ Exercise 2: Webcam Real-time Reading """
-#         ############## YOU MUST EDIT ONLY HERE ##############
-#         #env.image_show(frame0, frame1)#포착한 프레임을 화면에 송출, 따라서 output은 따로 없음
-#         #####################################################
-#
-#         """ Exercise 3: Object Detection (Traffic Light Circle) """
-#         #################### YOU MUST EDIT ONLY HERE ####################
-#         #color = env.object_detection(frame1, sample=16, print_enable=True)
-#         # 카메라 데이터(frame0)입력해서 신호등 샘플 16개를 읽는다
-#
-#         #################################################################
-#
-#         """ Exercise 4: Specific Edge Detection (Traffic Line) """
-#         #################### YOU MUST EDIT ONLY HERE ####################
-#         #direction = env.edge_detection(frame1, width=500, height=120, gap=40, threshold=150, print_enable=True)
-#         #
-#         #################################################################
-#
-#         # Process Termination (If you input the 'q', camera scanning is ended.)
-#         if env.loop_break():
-#             break
+
 
 
 import numpy as np
@@ -54,7 +13,7 @@ import Function_Library as fl
 class Config:
     # 1. 주행 중 중앙 유지
     TARGET_LINE = 'RIGHT'  # 시작 시 추종할 차선 ('RIGHT' 또는 'LEFT')
-    OFFSET_FROM_LINE = 120  # 타겟 차선으로부터 떨어져서 유지할 픽셀 간격 (튜닝 필수!)
+    OFFSET_FROM_LINE = 120  # 타겟 차선으로부터 떨어져서 유지할 픽셀 간격 (튜닝 필수!) -> 키울수록 차선에서 멀어지는 거임
 
     # 2. 제어 민감도
     KP_ANGLE = 1.25  # 각도 변화에 얼마나 민감하게 핸들을 꺾을 것인가?
@@ -66,7 +25,7 @@ class Config:
     STEER_MAX = 120  # 우회전 최대 한계
 
     # 4. 카메라 시야 (관심 영역)
-    ROI_RATIO = 0.3  # 0.5 = 화면의 위쪽 50%는 까맣게 무시함 (먼 배경 노이즈 제거)
+    ROI_RATIO = 0.3  # 예를 들어 0.5 = 화면의 위쪽 50%는 까맣게 무시함 (먼 배경 무시)
 
     # 5. [NEW] 노이즈 및 주름 제거 튜닝
     BLUR_SIZE = 7  # 주름을 뭉개는 강도 (5, 7, 9 등 홀수. 클수록 많이 뭉갬)
@@ -80,7 +39,7 @@ def get_steering_angle(camera, img, config):
     screen_center_x = img_w // 2
 
     # --- 1. 관심 영역(ROI) 설정 ---
-    # 멀리 있는 점선이나 노이즈를 안 보기 위해 화면 윗부분을 까맣게 지웁니다.
+    # 멀리 있는 점선이나 노이즈를 안 보기 위해 ROI_RATIO 화면 윗부분을 까맣게 지웁니다.
     roi_img = img.copy()
     roi_img[0:int(img_h * config.ROI_RATIO), :] = 0
 
@@ -93,7 +52,7 @@ def get_steering_angle(camera, img, config):
 
     # --- 3. 직선 검출 ---
     lines = camera.hough_transform(canny, 1, np.pi / 180, 50, 10, 20, mode="lineP")
-                          # 여기서 끝에서 2번째 변수는 최소 선 길이(초기값 10픽셀)->노이즈 제거
+                          # 여기서 끝에서 2번째 변수는 최소 선 길이(초기값 10픽셀)->기준 길이 이하의 노이즈 제거
 
     target_gradients = []
     target_x_list = []
@@ -150,10 +109,9 @@ def get_steering_angle(camera, img, config):
 
         # 디버깅용 선 긋기
         cv2.line(img, (screen_center_x, img_h), (screen_center_x, img_h - 50), (255, 0, 0), 3)  # 파란선: 화면 중앙 (차의 현재 위치)
-        cv2.line(img, (int(target_center_x), img_h), (int(target_center_x), img_h - 50), (0, 255, 255),
-                 3)  # 노란선: 내가 가야 할 목표 중앙
+        cv2.line(img, (int(target_center_x), img_h), (int(target_center_x), img_h - 50), (0, 255, 255), 3)  # 노란선: 내가 가야 할 목표 중앙
 
-    # --- 5. 조향각 물리적 제한 (60 ~ 120도) ---
+    # --- 5. 조향각 물리적 제한 (60 ~ 120도) --- 중앙이 90도
     final_steering = max(config.STEER_MIN, min(config.STEER_MAX, int(final_steering)))
 
     return final_steering
@@ -164,7 +122,7 @@ def main():
     arduino = fl.libARDUINO()
     camera = fl.libCAMERA()
 
-    ARDUINO_PORT = 'COM5'  # 설정하신 COM5 포트
+    ARDUINO_PORT = 'COM5'  # 문시원 노트북 기준 COM5 포트
     BAUD_RATE = 9600
 
     print("아두이노 연결 시도...")
